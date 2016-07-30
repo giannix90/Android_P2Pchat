@@ -466,7 +466,7 @@ public class MainActivity extends AppCompatActivity
 
                 OutputStream outputStream = socket.getOutputStream();
 
-//                outputStream.write(new byte[]{Byte.valueOf("Gianni")});//Send a name to server
+
 
                 outputStream.close();
 
