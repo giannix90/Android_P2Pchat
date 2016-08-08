@@ -44,7 +44,7 @@ public class NsdHelper {
     public static final String SERVICE_TYPE = "_http._tcp.";
 
     public static final String TAG = "NsdHelper";
-    public String mServiceName = "Gianni_NsdChat";
+    public String mServiceName = "_NsdChat";
 
     int serverFounded=0;
     NsdServiceInfo mService;
@@ -84,7 +84,8 @@ public class NsdHelper {
 
                     Log.d(TAG, "Unknown Service Type: " + service.getServiceType());
 
-                } else if (service.getServiceName().contains(mServiceName)){
+                }
+                //else if (service.getServiceName().contains(mServiceName)){
 
                 try {
                     mNsdManager.resolveService(service, mResolveListener);
@@ -102,7 +103,7 @@ public class NsdHelper {
                         @Override
                         public void onServiceResolved(NsdServiceInfo serviceInfo) {
 
-                            mPeerFounded.onPeerFounded("Ip del peer trovato: "+serviceInfo.getHost().toString(),serviceInfo.getHost().toString(),serviceInfo.getPort());
+                            mPeerFounded.onPeerFounded(serviceInfo.getServiceName(),serviceInfo.getHost().toString(),serviceInfo.getPort());
                             Log.e(TAG, "Resolve Succeeded. " + serviceInfo);
 
                             if (serviceInfo.getServiceName().equals(mServiceName)) {
@@ -114,7 +115,7 @@ public class NsdHelper {
                     });
                 }
                 }
-            }
+           // }
 
 
             @Override
@@ -154,7 +155,7 @@ public class NsdHelper {
             @Override
             public void onServiceResolved(NsdServiceInfo serviceInfo) {
 
-                mPeerFounded.onPeerFounded("Ip del peer trovato: "+serviceInfo.getHost().toString(),serviceInfo.getHost().toString(),serviceInfo.getPort());
+                mPeerFounded.onPeerFounded(serviceInfo.getServiceName(),serviceInfo.getHost().toString(),serviceInfo.getPort());
                 Log.e(TAG, "Resolve Succeeded. " + serviceInfo);
 
                 if (serviceInfo.getServiceName().equals(mServiceName)) {

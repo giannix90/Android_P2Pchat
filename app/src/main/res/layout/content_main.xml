@@ -33,6 +33,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/listView"
+        android:textColor="#1621bf"
+        android:gravity="center"
+        android:textStyle="bold"
+        android:textSize="12sp"
         android:layout_below="@+id/button"
         android:layout_alignParentEnd="true"
         android:theme="@android:style/Widget.ScrollView" />

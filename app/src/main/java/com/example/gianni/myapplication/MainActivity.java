@@ -1,21 +1,20 @@
 package com.example.gianni.myapplication;
 
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.net.nsd.NsdManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Parcelable;
+import android.os.StrictMode;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.text.format.Formatter;
@@ -38,17 +37,43 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
+import java.nio.CharBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 
 public class MainActivity extends AppCompatActivity
@@ -82,6 +107,15 @@ public class MainActivity extends AppCompatActivity
     ArrayAdapter<String> adapter;
     ListView listOfUsers;
 
+    Key pubKey;
+
+    Key privKey;
+
+    byte[] plainText;
+    byte[] cipherText;
+
+
+
     public static final String TAG = "Activity";
 //------------------------------------------------------------------
 
@@ -92,7 +126,115 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-     //   new ClientAsyncTask("192.168.1.2").execute();
+        //creating public_private key pair
+
+        File sdCard = Environment.getExternalStorageDirectory();
+        File dir = new File (sdCard.getAbsolutePath() + "/P2P_key");
+        dir.mkdirs();
+        File pub_file = new File(dir, "pub.key");
+        File pr_file = new File(dir, "pr.key");
+
+        if(!pub_file.isFile() && !pr_file.isFile()) {
+
+            /*In this case i have to generate a new public and private key pair because is the first run for the app*/
+
+            try {
+                KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA", "BC");
+
+                generator.initialize(1024);
+
+                KeyPair pair = generator.generateKeyPair();
+
+                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+
+                pubKey = pair.getPublic();
+
+                privKey = pair.getPrivate();
+
+                    /* save the public key in a file */
+                byte[] key = pubKey.getEncoded();
+                FileOutputStream keyfos = new FileOutputStream(pub_file);
+                keyfos.write(key);
+                keyfos.close();
+
+                    /* save the private key in a file */
+                byte[] prkey = privKey.getEncoded();
+                FileOutputStream keypr = new FileOutputStream(pr_file);
+                keypr.write(prkey);
+                keypr.close();
+
+
+                byte[] key_pub = new byte[1024];
+                FileInputStream inpub = new FileInputStream(pub_file);
+                inpub.read(key_pub);
+                inpub.close();
+
+                byte[] key_pr = new byte[1024];
+                FileInputStream inpr = new FileInputStream(pr_file);
+                inpr.read(key_pr);
+                inpr.close();
+
+                KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
+                PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key_pr));
+                PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key_pub));
+
+
+                cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+
+                cipherText = cipher.doFinal("Stringaa da criptare ok!!!!\n".getBytes("UTF8"));
+
+                cipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+                plainText = cipher.doFinal(cipherText);
+
+
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            } catch (NoSuchProviderException e) {
+                e.printStackTrace();
+            } catch (NoSuchPaddingException e) {
+                e.printStackTrace();
+            } catch (BadPaddingException e) {
+                e.printStackTrace();
+            } catch (IllegalBlockSizeException e) {
+                e.printStackTrace();
+            } catch (InvalidKeyException e) {
+                e.printStackTrace();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InvalidKeySpecException e) {
+                e.printStackTrace();
+            }
+        }else{
+            /*Public_Private Key set already generated, i have to load them from files*/
+
+            try {
+                byte[] key_pub = new byte[1024];
+                FileInputStream inpub = new FileInputStream(pub_file);
+                inpub.read(key_pub);
+                inpub.close();
+
+                byte[] key_pr = new byte[1024];
+                FileInputStream inpr = new FileInputStream(pr_file);
+                inpr.read(key_pr);
+                inpr.close();
+
+                KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
+                privKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key_pr));
+                pubKey = kf.generatePublic(new X509EncodedKeySpec(key_pub));
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InvalidKeySpecException e) {
+                e.printStackTrace();
+            }
+
+        }
 
         new FileServerAsyncTask(this,null).execute(); //This server is for accept incoming chat request
 
@@ -162,6 +304,50 @@ public class MainActivity extends AppCompatActivity
                 }else {
                     Toast.makeText(MainActivity.this, "Logged as: " + logName.getText() + " ", Toast.LENGTH_LONG).show();
                     mUsername = new String(logName.getText().toString());
+
+
+                    //----------------------------------------------------
+                    // Create the NsdServiceInfo object, and populate it.
+
+                    mUpdateHandler = new Handler()
+                    {
+                        @Override
+                        public void handleMessage(Message msg)
+                        {
+                            String chatLine = msg.getData().getString("msg");
+                            addChatLine(chatLine);
+                        }
+                    };
+
+                    //mConnection = new ChatConnection(mUpdateHandler);
+
+
+                    try {
+                        if(sk==null)
+                            sk=new ServerSocket(0); // if sk != null a connection is established
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    mNsdHelper = new NsdHelper(MainActivity.this);
+                    mNsdHelper.mServiceName=mUsername;
+                    mNsdHelper.initializeNsd(); //callback for register
+
+      /*Register the service*/
+                    if (sk.getLocalPort() > -1)
+                    {
+
+                        mNsdHelper.registerService(sk.getLocalPort()); //try to register service
+
+                    }
+                    else
+                    {
+                        Log.e(TAG, "ServerSocket isn't bound.");
+                    }
+
+        /*Discover the available services on the network*/
+                    mNsdHelper.discoverServices();
+
                     dialog.dismiss();//this close the dialog frame
                 }
             }
@@ -209,46 +395,7 @@ public class MainActivity extends AppCompatActivity
         textbox.append(Formatter.formatIpAddress(wifiInfo.getIpAddress()));
 
 
-        //----------------------------------------------------
-        // Create the NsdServiceInfo object, and populate it.
 
-        mUpdateHandler = new Handler()
-        {
-            @Override
-            public void handleMessage(Message msg)
-            {
-                String chatLine = msg.getData().getString("msg");
-                addChatLine(chatLine);
-            }
-        };
-
-        //mConnection = new ChatConnection(mUpdateHandler);
-
-
-        try {
-            if(sk==null)
-                sk=new ServerSocket(0); // if sk != null a connection is established
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        mNsdHelper = new NsdHelper(this);
-        mNsdHelper.initializeNsd(); //callback for register
-
-      /*Register the service*/
-        if (sk.getLocalPort() > -1)
-        {
-
-            mNsdHelper.registerService(sk.getLocalPort()); //try to register service
-
-        }
-        else
-        {
-            Log.e(TAG, "ServerSocket isn't bound.");
-        }
-
-        /*Discover the available services on the network*/
-        mNsdHelper.discoverServices();
         mIp=Formatter.formatIpAddress(wifiInfo.getIpAddress());
 
         addChatLine("\n\n\nMy Ip: "+mIp);
@@ -258,15 +405,20 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onItemClick(AdapterView<?> adattatore, final View componente, int pos, long id){
+
                 // recupero il titolo memorizzato nella riga tramite l'ArrayAdapter
                 final String titoloriga = (String) adattatore.getItemAtPosition(pos);
                 ClientAsyncTask cl=new ClientAsyncTask("192.168.1.2");
                 Toast.makeText(MainActivity.this, "Ho cliccato sull'elemento"+pos+" con titolo" + titoloriga, Toast.LENGTH_LONG).show();
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                    //For build newest than HONEYCOMB i need to us this command to launch AsyncTask
                     cl.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (Void[])null);
-                else
+                }
+                else {
                     cl.execute((Void[])null);
+                }
 
 
 
@@ -276,12 +428,7 @@ public class MainActivity extends AppCompatActivity
 
 
 
-        /*-------This part is for receiving client name from client----------*/
-        //updateConversationHandler = new Handler();
-
-        //this.serverThread = new Thread(new ServerThread());
-
-        //this.serverThread.start();
+        textbox.append("Path: "+sdCard.getPath());
     }
 
     public void addChatLine(String line)
@@ -398,7 +545,6 @@ public class MainActivity extends AppCompatActivity
             public void run() {
 
                 Log.e(TAG,"Ho trovato un peer!!!!!!");
-//              textbox.append(info);
 
 
                     if(!mListOfPeer.lookup(host) && !host.contains(mIp)) {
@@ -413,13 +559,12 @@ public class MainActivity extends AppCompatActivity
                     }
 
 
-
                 try {
                     sk.close();//I close the socket used for discovery
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                //new ServerAsyncTask(host).execute(host);
+
 
 
             }
@@ -432,9 +577,7 @@ public class MainActivity extends AppCompatActivity
 
 
 
-
-
-    /*-----------------------*/
+/*--------This task is for sending connection request to the other peer-----------*/
 
     class ClientAsyncTask extends AsyncTask<Void,Void,Void> {
 
@@ -461,14 +604,97 @@ public class MainActivity extends AppCompatActivity
                  */
                 socket.bind(null);
                 Log.d(TAG,"Start communication with:"+this.address+": "+8888);
-                socket.connect((new InetSocketAddress(this.address, 8888)), 500);
+                socket.connect((new InetSocketAddress(this.address, 8888)), 5000);
                 Log.d(TAG,"Start communication with:"+this.address+": "+8888);
 
-                OutputStream outputStream = socket.getOutputStream();
+               InputStream in=socket.getInputStream();
+
+                final byte [] b=new byte[1];
+                in.read(b);
 
 
+                if((char) b[0]=='y') {
 
-                outputStream.close();
+                    /*The other peer say "ok i accept the connection: give me your public key"*/
+                    DataOutputStream sendPublicKey= new DataOutputStream(socket.getOutputStream());
+
+
+                    sendPublicKey.write(pubKey.getEncoded());
+
+                    final byte [] sessionKey = new byte[128];
+
+
+                    //wait for session key
+                    DataInputStream is = new DataInputStream(socket.getInputStream());
+                    is.read(sessionKey);
+                    is.close();
+                    sendPublicKey.close();
+                    in.close();
+
+
+                    Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+
+                    cipher.init(Cipher.DECRYPT_MODE, privKey);
+
+                    final byte [] pl= cipher.doFinal(sessionKey);
+
+                    runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            new android.support.v7.app.AlertDialog.Builder(MainActivity.this)
+
+
+                                    //I inflate the box of custom title
+                                    .setTitle("OK!!")
+                                    .setMessage("Session key: "+new String(pl))
+                                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            // continue with CONNECTION ==> I have to launch a new dialog activity
+
+                                            Peer p=new Peer(address,"User");
+                                            Intent myIntent = new Intent(MainActivity.this, ChatActivity.class);
+                                           // myIntent.putExtra("com.example.gianni.myapplication", (Parcelable) p); //Optional parameters
+                                            MainActivity.this.startActivity(myIntent);
+                                        }
+                                    })
+
+
+                                    .setIcon(android.R.drawable.ic_dialog_alert)
+                                    .show();
+                        }
+
+                    });
+                }else{
+                    //i received 'n'
+                    //do nothing connection aborted
+                    runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            new android.support.v7.app.AlertDialog.Builder(MainActivity.this)
+
+
+                                    //I inflate the box of custom title
+                                    .setTitle("No!!")
+                                    .setMessage("Connection refused by other peer")
+                                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            // return to the MainActivity
+
+                                        }
+                                    })
+
+
+                                    .setIcon(android.R.drawable.ic_dialog_alert)
+                                    .show();
+                        }
+
+                    });
+                }
+                //is.close();
+
+
 
             }catch (FileNotFoundException e) {
                 Log.d(TAG,e.getMessage());
@@ -481,9 +707,17 @@ public class MainActivity extends AppCompatActivity
             /**
              * Clean up any open sockets when done
              * transferring or if an exception occurred.
-             */
-
-            finally {
+             */ catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            } catch (InvalidKeyException e) {
+                e.printStackTrace();
+            } catch (NoSuchPaddingException e) {
+                e.printStackTrace();
+            } catch (BadPaddingException e) {
+                e.printStackTrace();
+            } catch (IllegalBlockSizeException e) {
+                e.printStackTrace();
+            } finally {
                 if (socket != null) {
                     if (socket.isConnected()) {
                         try {
@@ -521,10 +755,10 @@ public class MainActivity extends AppCompatActivity
                      * Create a server socket and wait for client connections. This
                      * call blocks until a connection is accepted from a client
                      */
-                    ServerSocket serverSocket = new ServerSocket(8888);
+                    final ServerSocket serverSocket = new ServerSocket(8888);
                     for (; ; ) {
                         Log.d(TAG, "Wait for communication");
-                        Socket client = serverSocket.accept();
+                        final Socket client = serverSocket.accept();
                         Log.d(TAG, "Accept communication from:");
 
                         runOnUiThread(new Runnable() {
@@ -539,12 +773,77 @@ public class MainActivity extends AppCompatActivity
                                         .setMessage("Accept new chat connection?")
                                         .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                                             public void onClick(DialogInterface dialog, int which) {
-                                                // continue with insert
+                                                try {
+
+                                                    /*Permit  android.os.NetworkOnMainThreadException*/
+                                                    StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+
+                                                    StrictMode.setThreadPolicy(policy);
+
+                                                    PrintWriter out =
+                                                            new PrintWriter(client.getOutputStream(), true);
+                                                    out.print("y");
+
+                                                    OutputStream os=client.getOutputStream();
+                                                    os.write((byte) 'y');
+                                                    os.flush();
+                                                   // os.close();
+
+                                                    DataInputStream pubKeyPeerStream=new DataInputStream(client.getInputStream());
+                                                    byte [] pubKeyPeer=new byte[1024];
+                                                    pubKeyPeerStream.read(pubKeyPeer);
+
+
+                                                    Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                                                    KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
+                                                    PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(pubKeyPeer));
+
+
+                                                    cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+
+                                                    cipherText = cipher.doFinal("5089\n".getBytes("UTF8"));
+
+                                                    Log.e(TAG,"SIZE ciphertext: "+cipherText.length);
+
+                                                    /*Send session key cipher by means of public key of the peer*/
+                                                    DataOutputStream sessionKeyOut=new DataOutputStream(client.getOutputStream());
+                                                    sessionKeyOut.write(cipherText);
+                                                    sessionKeyOut.flush();
+                                                    sessionKeyOut.close();
+                                                    os.close();
+                                                } catch (IOException e) {
+                                                    e.printStackTrace();
+                                                } catch (InvalidKeySpecException e) {
+                                                    e.printStackTrace();
+                                                } catch (NoSuchAlgorithmException e) {
+                                                    e.printStackTrace();
+                                                } catch (BadPaddingException e) {
+                                                    e.printStackTrace();
+                                                } catch (IllegalBlockSizeException e) {
+                                                    e.printStackTrace();
+                                                } catch (NoSuchPaddingException e) {
+                                                    e.printStackTrace();
+                                                } catch (InvalidKeyException e) {
+                                                    e.printStackTrace();
                                                 }
+
+                                                Peer p=new Peer("addr","User");
+                                            //    Intent myIntent = new Intent(MainActivity.this, ChatActivity.class);
+                                              //  myIntent.putExtra("com.example.gianni.myapplication", "addr"); //Optional parameters
+                                                //MainActivity.this.startActivity(myIntent);
+                                            }
                                         })
                                         .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
                                             public void onClick(DialogInterface dialog, int which) {
-                                                // do nothing
+                                                // send that i don't want connect with him
+                                                try {
+                                                    OutputStream os=client.getOutputStream();
+                                                    os.write((byte) 'n');
+                                                    os.flush();
+                                                    os.close();
+                                                } catch (IOException e) {
+                                                    e.printStackTrace();
+                                                }
                                             }
                                         })
 
@@ -557,7 +856,7 @@ public class MainActivity extends AppCompatActivity
 
 
 
-                    }        //Toast.makeText(MainActivity.this,"Connessione da parte di:"+client.getInetAddress().toString(),Toast.LENGTH_LONG).show();
+                    }
                           }catch(IOException e){
                             Log.e(TAG, e.getMessage());
                             return null;
@@ -566,7 +865,6 @@ public class MainActivity extends AppCompatActivity
 
             }
         }
-
 
 
 }

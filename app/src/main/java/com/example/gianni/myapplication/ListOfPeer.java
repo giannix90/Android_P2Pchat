@@ -1,6 +1,5 @@
 package com.example.gianni.myapplication;
 
-import java.net.InetAddress;
 import java.util.Hashtable;
 
 /**
