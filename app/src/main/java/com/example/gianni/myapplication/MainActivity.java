@@ -13,7 +13,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Parcelable;
 import android.os.StrictMode;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -35,8 +34,6 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -45,16 +42,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.CharBuffer;
-import java.nio.charset.StandardCharsets;
+
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -73,25 +65,29 @@ import java.util.List;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 
+
+/**
+ * Created by gianni on 22/07/16.
+ */
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,NsdHelper.PeerFounded{
 
     NsdHelper mNsdHelper;
     private Handler mUpdateHandler;
-    Handler updateConversationHandler;
 
-    /*
+
+    /**
      *   A Handler allows you to send and process Message and Runnable objects associated with a thread's MessageQueue.
      *   Each Handler instance is associated with a single thread and that thread's message queue
-     */
+     **/
 
     ChatConnection mConnection;
     ListOfPeer mListOfPeer;
 
-    ServerSocket serverSocket;
 
     String mIp;
 
@@ -296,15 +292,19 @@ public class MainActivity extends AppCompatActivity
             //Assign a listener to click event
             @Override
             public void onClick(View v) {
-                if(logName.getText().toString().equals("")){
+
+                //Fetch the userName inserted
+                String usrName=new String(logName.getText().toString());
+
+                if(usrName.equals("") || usrName.contains("(") || usrName.contains(")")){
 
                     Toast.makeText(MainActivity.this, "The name inserted is not valid!", Toast.LENGTH_LONG).show();
-
                     //Do nothing because the username is wrong
+
                 }else {
+
                     Toast.makeText(MainActivity.this, "Logged as: " + logName.getText() + " ", Toast.LENGTH_LONG).show();
                     mUsername = new String(logName.getText().toString());
-
 
                     //----------------------------------------------------
                     // Create the NsdServiceInfo object, and populate it.
@@ -319,11 +319,9 @@ public class MainActivity extends AppCompatActivity
                         }
                     };
 
-                    //mConnection = new ChatConnection(mUpdateHandler);
-
-
                     try {
                         if(sk==null)
+                            /*sk is a socket used for discovery and register the service*/
                             sk=new ServerSocket(0); // if sk != null a connection is established
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -333,7 +331,8 @@ public class MainActivity extends AppCompatActivity
                     mNsdHelper.mServiceName=mUsername;
                     mNsdHelper.initializeNsd(); //callback for register
 
-      /*Register the service*/
+
+                    /*Register the service*/
                     if (sk.getLocalPort() > -1)
                     {
 
@@ -345,7 +344,7 @@ public class MainActivity extends AppCompatActivity
                         Log.e(TAG, "ServerSocket isn't bound.");
                     }
 
-        /*Discover the available services on the network*/
+                    /*Discover the available services on the network*/
                     mNsdHelper.discoverServices();
 
                     dialog.dismiss();//this close the dialog frame
@@ -360,17 +359,18 @@ public class MainActivity extends AppCompatActivity
         }
 
 
-        /*
+        /**
         *   Handle the WiFi part
-        */
+        **/
 
-        /*
+        /**
         * N.B. Context class is an Interface to global information about an application environment. This is an abstract class whose implementation is provided by the Android system.
         * It allows access to application-specific resources and classes, as well as up-calls for application-level operations
         * such as launching activities, broadcasting and receiving intents, etc.
         *
         * */
-        /*
+
+        /**
         * I have to check if wifi is on
         * */
 
@@ -394,8 +394,6 @@ public class MainActivity extends AppCompatActivity
 
         textbox.append(Formatter.formatIpAddress(wifiInfo.getIpAddress()));
 
-
-
         mIp=Formatter.formatIpAddress(wifiInfo.getIpAddress());
 
         addChatLine("\n\n\nMy Ip: "+mIp);
@@ -408,9 +406,12 @@ public class MainActivity extends AppCompatActivity
 
                 // recupero il titolo memorizzato nella riga tramite l'ArrayAdapter
                 final String titoloriga = (String) adattatore.getItemAtPosition(pos);
-                ClientAsyncTask cl=new ClientAsyncTask("192.168.1.2");
-                Toast.makeText(MainActivity.this, "Ho cliccato sull'elemento"+pos+" con titolo" + titoloriga, Toast.LENGTH_LONG).show();
 
+                //Recover the ip of the client selected by listView (Is not the best choice)
+                String ipSelectedClient=new String(titoloriga.substring(titoloriga.indexOf('(')+2,titoloriga.length()-1));
+
+                ClientAsyncTask cl=new ClientAsyncTask(ipSelectedClient);
+                Toast.makeText(MainActivity.this, "Chat request to "+ ipSelectedClient, Toast.LENGTH_LONG).show();
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                     //For build newest than HONEYCOMB i need to us this command to launch AsyncTask
@@ -544,17 +545,16 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void run() {
 
-                Log.e(TAG,"Ho trovato un peer!!!!!!");
-
+                    Log.e(TAG,"Ho trovato un peer!!!!!!");
 
                     if(!mListOfPeer.lookup(host) && !host.contains(mIp)) {
 
                         //If host.contains(mIp) means that this service run on my devices
-
                         Log.e(TAG, "New Peer trovato, lo aggiungo in hash table");
+
                         //Insert a new peer in the list if it's note present
                         mListOfPeer.insert(host, new Peer(host, "name"));
-                        user.add(info);
+                        user.add("1. "+info+" ("+host+")");
                         adapter.notifyDataSetChanged(); //update adapter
                     }
 
@@ -577,7 +577,7 @@ public class MainActivity extends AppCompatActivity
 
 
 
-/*--------This task is for sending connection request to the other peer-----------*/
+/*--------This thread is for sending connection request to the other peer-----------*/
 
     class ClientAsyncTask extends AsyncTask<Void,Void,Void> {
 
@@ -593,50 +593,60 @@ public class MainActivity extends AppCompatActivity
         @Override
         protected Void doInBackground(Void ... params) {
 
-            Log.d(TAG,"Start communication with:"+this.address+": "+8888);
+            Log.d(TAG,"Start communication with:"+this.address+": "+8888); //I use the 8888 port to start handshake
+
             //Client socket
             Socket socket = new Socket(); //Socket for transmitting the user-name on the server
 
             try {
+
                 /**
                  * Create a client socket with the host,
                  * port, and timeout information.
                  */
+
                 socket.bind(null);
                 Log.d(TAG,"Start communication with:"+this.address+": "+8888);
                 socket.connect((new InetSocketAddress(this.address, 8888)), 5000);
                 Log.d(TAG,"Start communication with:"+this.address+": "+8888);
 
-               InputStream in=socket.getInputStream();
 
+                /**
+                 * Create an input stream for the response of the other peer
+                 *
+                 * - 'y' ==> the peer accept the connection and then i can start the hanshake
+                 *
+                 * - 'n' ==> the peer refuse the connection
+                 *
+                 * **/
+                InputStream in=socket.getInputStream();
                 final byte [] b=new byte[1];
                 in.read(b);
 
 
+                /*The other peer accept the connection request*/
                 if((char) b[0]=='y') {
 
-                    /*The other peer say "ok i accept the connection: give me your public key"*/
+                    /*The other peer say "ok i accept the connection: give me your public key" , then i have to send my pubKey*/
                     DataOutputStream sendPublicKey= new DataOutputStream(socket.getOutputStream());
-
-
                     sendPublicKey.write(pubKey.getEncoded());
 
-                    final byte [] sessionKey = new byte[128];
 
+                    final byte [] encSessionKey = new byte[128]; //space reserved for the (AES)session key block encrypted with RSA
 
                     //wait for session key
                     DataInputStream is = new DataInputStream(socket.getInputStream());
-                    is.read(sessionKey);
+                    is.read(encSessionKey);
+
+                    //i close the stream
                     is.close();
                     sendPublicKey.close();
                     in.close();
 
-
+                    //I decrypt the session key
                     Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-
                     cipher.init(Cipher.DECRYPT_MODE, privKey);
-
-                    final byte [] pl= cipher.doFinal(sessionKey);
+                    final byte [] sessionKey= cipher.doFinal(encSessionKey);
 
                     runOnUiThread(new Runnable() {
 
@@ -646,30 +656,37 @@ public class MainActivity extends AppCompatActivity
 
 
                                     //I inflate the box of custom title
-                                    .setTitle("OK!!")
-                                    .setMessage("Session key: "+new String(pl))
+                                    .setTitle("OK chat request accepted!!")
+                                    .setMessage("Session key: "+new String(sessionKey))
                                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            // continue with CONNECTION ==> I have to launch a new dialog activity
 
-                                            Peer p=new Peer(address,"User");
-                                            Intent myIntent = new Intent(MainActivity.this, ChatActivity.class);
-                                           // myIntent.putExtra("com.example.gianni.myapplication", (Parcelable) p); //Optional parameters
-                                            MainActivity.this.startActivity(myIntent);
-                                        }
+                                            public void onClick(DialogInterface dialog, int which) {
+
+                                                /* continue with CONNECTION ==> I have to launch a new dialog activity*/
+                                                Peer p=new Peer(address,"User");
+                                                Intent myIntent = new Intent(MainActivity.this, ChatActivity.class); //Optional parameters
+                                                myIntent.putExtra("com.example.gianni.myapplication", address); //Optional parameters
+                                                MainActivity.this.startActivity(myIntent);
+
+                                            }
                                     })
-
 
                                     .setIcon(android.R.drawable.ic_dialog_alert)
                                     .show();
+
                         }
 
                     });
-                }else{
-                    //i received 'n'
-                    //do nothing connection aborted
-                    runOnUiThread(new Runnable() {
 
+
+                }else{
+
+                    /** int this case i've received 'n'
+                     *  i do nothing: connection aborted
+                     **/
+
+                    //i launch an alert
+                    runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             new android.support.v7.app.AlertDialog.Builder(MainActivity.this)
@@ -679,22 +696,21 @@ public class MainActivity extends AppCompatActivity
                                     .setTitle("No!!")
                                     .setMessage("Connection refused by other peer")
                                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+
                                         public void onClick(DialogInterface dialog, int which) {
                                             // return to the MainActivity
+
 
                                         }
                                     })
 
-
                                     .setIcon(android.R.drawable.ic_dialog_alert)
                                     .show();
+
                         }
 
                     });
                 }
-                //is.close();
-
-
 
             }catch (FileNotFoundException e) {
                 Log.d(TAG,e.getMessage());
@@ -702,12 +718,7 @@ public class MainActivity extends AppCompatActivity
             } catch (IOException e) {
                 //catch logic
                 Log.d(TAG,e.getMessage());
-            }
-
-            /**
-             * Clean up any open sockets when done
-             * transferring or if an exception occurred.
-             */ catch (NoSuchAlgorithmException e) {
+            }catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();
             } catch (InvalidKeyException e) {
                 e.printStackTrace();
@@ -717,7 +728,14 @@ public class MainActivity extends AppCompatActivity
                 e.printStackTrace();
             } catch (IllegalBlockSizeException e) {
                 e.printStackTrace();
+
             } finally {
+
+                /**
+                 * Clean up any open sockets when done
+                 * transferring or if an exception occurred.
+                 */
+
                 if (socket != null) {
                     if (socket.isConnected()) {
                         try {
@@ -729,10 +747,8 @@ public class MainActivity extends AppCompatActivity
                 }
             }
 
-
             return null;
         }
-
 
     }
 
@@ -756,9 +772,13 @@ public class MainActivity extends AppCompatActivity
                      * call blocks until a connection is accepted from a client
                      */
                     final ServerSocket serverSocket = new ServerSocket(8888);
+
                     for (; ; ) {
+
                         Log.d(TAG, "Wait for communication");
+
                         final Socket client = serverSocket.accept();
+
                         Log.d(TAG, "Accept communication from:");
 
                         runOnUiThread(new Runnable() {
@@ -777,31 +797,36 @@ public class MainActivity extends AppCompatActivity
 
                                                     /*Permit  android.os.NetworkOnMainThreadException*/
                                                     StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-
                                                     StrictMode.setThreadPolicy(policy);
-
-                                                    PrintWriter out =
-                                                            new PrintWriter(client.getOutputStream(), true);
+/*
+                                                    PrintWriter out =new PrintWriter(client.getOutputStream(), true);
                                                     out.print("y");
-
+*/
+                                                    /*Send that i want accept the communication*/
                                                     OutputStream os=client.getOutputStream();
                                                     os.write((byte) 'y');
                                                     os.flush();
-                                                   // os.close();
 
+                                                    /*I wait for a public Key of the peer*/
                                                     DataInputStream pubKeyPeerStream=new DataInputStream(client.getInputStream());
                                                     byte [] pubKeyPeer=new byte[1024];
                                                     pubKeyPeerStream.read(pubKeyPeer);
 
-
+                                                    /*Prepare the RSA cipher*/
                                                     Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                                                    KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
-                                                    PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(pubKeyPeer));
+                                                    KeyFactory kf = KeyFactory.getInstance("RSA");
+                                                    PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(pubKeyPeer));//convert from byte stream to key format
 
 
+                                                    /*Generating session Key with AES*/
+                                                    KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+                                                    keyGen.init(256);
+                                                    Key sessionKey = keyGen.generateKey();
+
+
+                                                    /*Encrypt the sessionKey with pubKey of peer*/
                                                     cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-
-                                                    cipherText = cipher.doFinal("5089\n".getBytes("UTF8"));
+                                                    cipherText = cipher.doFinal(sessionKey.getEncoded()); //This is the sessionKey ecrypted
 
                                                     Log.e(TAG,"SIZE ciphertext: "+cipherText.length);
 
@@ -809,8 +834,11 @@ public class MainActivity extends AppCompatActivity
                                                     DataOutputStream sessionKeyOut=new DataOutputStream(client.getOutputStream());
                                                     sessionKeyOut.write(cipherText);
                                                     sessionKeyOut.flush();
+
+                                                    /*Close the opened stream*/
                                                     sessionKeyOut.close();
                                                     os.close();
+
                                                 } catch (IOException e) {
                                                     e.printStackTrace();
                                                 } catch (InvalidKeySpecException e) {
@@ -827,20 +855,25 @@ public class MainActivity extends AppCompatActivity
                                                     e.printStackTrace();
                                                 }
 
+                                                /*I launch a new activity for the chat with secure channel created*/
                                                 Peer p=new Peer("addr","User");
-                                            //    Intent myIntent = new Intent(MainActivity.this, ChatActivity.class);
-                                              //  myIntent.putExtra("com.example.gianni.myapplication", "addr"); //Optional parameters
-                                                //MainActivity.this.startActivity(myIntent);
+                                                Intent myIntent = new Intent(MainActivity.this, ChatActivity.class);
+                                                //myIntent.putExtra("com.example.gianni.myapplication", client.getInetAddress().getHostAddress()); //Optional parameters
+                                                MainActivity.this.startActivity(myIntent);
                                             }
                                         })
+
                                         .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
                                             public void onClick(DialogInterface dialog, int which) {
                                                 // send that i don't want connect with him
                                                 try {
+
+                                                    /*I just send to the peer that i don't wont init a chat with them*/
                                                     OutputStream os=client.getOutputStream();
                                                     os.write((byte) 'n');
                                                     os.flush();
                                                     os.close();
+
                                                 } catch (IOException e) {
                                                     e.printStackTrace();
                                                 }
@@ -854,19 +887,17 @@ public class MainActivity extends AppCompatActivity
 
                         });
 
-
-
                     }
-                          }catch(IOException e){
+
+
+                }catch(IOException e){
+
                             Log.e(TAG, e.getMessage());
                             return null;
-
                 }
 
             }
         }
-
-
 }
 
 
