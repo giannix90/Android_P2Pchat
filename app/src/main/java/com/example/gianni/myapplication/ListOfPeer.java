@@ -7,7 +7,8 @@ import java.util.Hashtable;
  */
 public class ListOfPeer {
 
-    Hashtable<String,Peer> peerList;
+    private static Hashtable<String,Peer> peerList;
+    int i;
 
     public ListOfPeer(){
         peerList=new Hashtable<String, Peer>(); //Allocate a new hashTable
@@ -18,7 +19,13 @@ public class ListOfPeer {
        return peerList.containsKey(addr);//Tests if the specified object is a key in this hashtable.
     }
 
-    public void insert(String addr,Peer p){
+    public static void insert(String addr,Peer p){
+
         peerList.put(addr,p);
+    }
+
+    public static Peer getPeer(String addr){
+
+        return peerList.get(addr);
     }
 }

@@ -67,6 +67,7 @@ import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 
 
 /**
@@ -85,7 +86,6 @@ public class MainActivity extends AppCompatActivity
      *   Each Handler instance is associated with a single thread and that thread's message queue
      **/
 
-    ChatConnection mConnection;
     ListOfPeer mListOfPeer;
 
 
@@ -234,7 +234,7 @@ public class MainActivity extends AppCompatActivity
 
         new FileServerAsyncTask(this,null).execute(); //This server is for accept incoming chat request
 
-        mListOfPeer=new ListOfPeer();
+        mListOfPeer=new SingletonListOfPeer().getSingleton();
 
         user = new ArrayList<String>();
 
@@ -468,8 +468,6 @@ public class MainActivity extends AppCompatActivity
         if(mNsdHelper != null)
             mNsdHelper.tearDown();
 
-        if(mConnection != null)
-            mConnection.tearDown();
 
         super.onDestroy();
     }
@@ -648,6 +646,24 @@ public class MainActivity extends AppCompatActivity
                     cipher.init(Cipher.DECRYPT_MODE, privKey);
                     final byte [] sessionKey= cipher.doFinal(encSessionKey);
 
+                    SecretKeySpec key = new SecretKeySpec(sessionKey, "AES");
+
+                    //Update the peer in ther list ==>insert the session key used
+                    final String addrPeer=socket.getInetAddress().getHostAddress();
+                    if(!mListOfPeer.lookup(addrPeer)){
+
+                        Log.e(TAG,"Peer not founded in the peer list ERROR!!");
+
+                        mListOfPeer.insert(addrPeer,new Peer(addrPeer,""));
+                        mListOfPeer.getPeer(addrPeer).setSessionKey(key);
+                    }else{
+                        mListOfPeer.getPeer(addrPeer).setSessionKey(key);
+                    }
+
+                    mListOfPeer.i=1;
+                    Log.e(TAG,"Inserted "+addrPeer+" in hash table");
+
+
                     runOnUiThread(new Runnable() {
 
                         @Override
@@ -657,7 +673,7 @@ public class MainActivity extends AppCompatActivity
 
                                     //I inflate the box of custom title
                                     .setTitle("OK chat request accepted!!")
-                                    .setMessage("Session key: "+new String(sessionKey))
+                                    .setMessage("Session key: "+new String(mListOfPeer.getPeer(addrPeer).getSessionKey().getEncoded()))
                                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
 
                                             public void onClick(DialogInterface dialog, int which) {
@@ -820,8 +836,20 @@ public class MainActivity extends AppCompatActivity
 
                                                     /*Generating session Key with AES*/
                                                     KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-                                                    keyGen.init(256);
+                                                    keyGen.init(128);
                                                     Key sessionKey = keyGen.generateKey();
+
+                                                    //Update the peer in ther list ==>insert the session key used
+                                                    String addrPeer=client.getInetAddress().getHostAddress();
+                                                    if(!mListOfPeer.lookup(addrPeer)){
+
+                                                        Log.e(TAG,"Peer not founded in the peer list ERROR!!");
+
+                                                        mListOfPeer.insert(addrPeer,new Peer(addrPeer,""));
+                                                        mListOfPeer.getPeer(addrPeer).setSessionKey(sessionKey);
+                                                    }else{
+                                                        mListOfPeer.getPeer(addrPeer).setSessionKey(sessionKey);
+                                                    }
 
 
                                                     /*Encrypt the sessionKey with pubKey of peer*/
