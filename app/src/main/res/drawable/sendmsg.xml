@@ -4,7 +4,7 @@
     <!-- you can use any color you want I used here gray color-->
     <solid android:color="#AFAFFF"/>
 
-    <gradient android:startColor="#DFDFDF" android:endColor="#DFFFFF"
+    <gradient android:startColor="#FFFFFF" android:endColor="#FFFFFF"
         android:angle="270"/>
 
 

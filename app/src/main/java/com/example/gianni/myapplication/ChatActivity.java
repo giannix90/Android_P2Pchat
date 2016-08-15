@@ -10,10 +10,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
+import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -60,8 +62,7 @@ public class ChatActivity extends AppCompatActivity {
     byte[] msg;
     IvParameterSpec ivparams;
 
-    //this is the hardcoded iv used for the CBC Mode, must be equal for the 2 devices
-    public static final byte[] iv= { 65, 1, 2, 23, 4, 5, 6, 7, 32, 21, 10, 11, 12, 13, 84, 45 };
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,12 +87,10 @@ public class ChatActivity extends AppCompatActivity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
-        ll = (RelativeLayout) findViewById(R.id.rel);
+        ll = (RelativeLayout) findViewById(R.id.layout1);
 
         Intent intent = getIntent();
         address = intent.getStringExtra("com.example.gianni.myapplication"); //if it's a string you stored
-
-
 
 
         if(address!=null) {
@@ -111,13 +110,13 @@ public class ChatActivity extends AppCompatActivity {
         }
 
 
-        textbox=(TextView) findViewById(R.id.textView3);
+
 
         sendBtn=(ImageButton) findViewById(R.id.imageButton);
 
         mess= (EditText) findViewById(R.id.editText);
 
-        textbox.append("\n"+address);
+        //textbox.append("\n"+address);
 
         RecvAsyncTask rec=new RecvAsyncTask(this);
 
@@ -148,6 +147,7 @@ public class ChatActivity extends AppCompatActivity {
                 tv.setBackgroundResource(R.drawable.mymsg);
                 tv.setWidth(s.length()*50);
                 tv.setHeight(100);
+                tv.setPadding(10,0,0,10);
                 tv.setTextColor(Color.WHITE);
                 tv.setTextAppearance(mActivity,android.R.style.TextAppearance_DeviceDefault_Large);
                 params.rightMargin = 70;
@@ -177,7 +177,7 @@ public class ChatActivity extends AppCompatActivity {
 
                     Log.e(TAG,"Size of CryptmyMsg. "+plaintext.length);
 
-                    textbox.append(new String(ciphero,"utf-8")+"\n");
+                    //textbox.append(new String(ciphero,"utf-8")+"\n");
                     out.write(ciphero,0,160);
                     out.flush();
                     Log.d(TAG,"Send message to other peer");
@@ -209,6 +209,7 @@ public class ChatActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
                 ll.addView(tv, params);
+                mess.setText(null);
 
             }
         });
@@ -250,15 +251,6 @@ public class ChatActivity extends AppCompatActivity {
 
 
 
-                runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        textbox.append(new String(String.valueOf(sessionKey)));
-                    }});
-
-
-
 
                 cipher.init(Cipher.DECRYPT_MODE, sessionKey);
 
@@ -286,7 +278,7 @@ public class ChatActivity extends AppCompatActivity {
                         public void run() {
 
 
-                            textbox.append(new String(msg)+"\n");
+                          //  textbox.append(new String(msg)+"\n");
 
                             byte[] plainTextMsg= new byte[10];
 
@@ -309,13 +301,20 @@ public class ChatActivity extends AppCompatActivity {
                             } catch (UnsupportedEncodingException e) {
                                 e.printStackTrace();
                             }
-                            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                            RelativeLayout.LayoutParams params = null;
+                            try {
+                                params = new RelativeLayout.LayoutParams(
+                                        new String(plainTextMsg,"utf-8").length()*2, ViewGroup.LayoutParams.MATCH_PARENT);
+                            } catch (UnsupportedEncodingException e) {
+                                e.printStackTrace();
+                            }
                             params.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
+                            params.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
                             tv.setLayoutParams(params);
                             tv.setBackgroundResource(R.drawable.sendmsg);
-                            tv.setWidth(new String(msg).length()*50);
+                            tv.setWidth(new String(plainTextMsg).length()*50);
                             tv.setHeight(100);
+                            tv.setPadding(10,0,0,10);
                             tv.setTextAppearance(mActivity,android.R.style.TextAppearance_DeviceDefault_Large);
                             params.leftMargin = 107;
                             params.topMargin=marg;

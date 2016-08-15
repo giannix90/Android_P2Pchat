@@ -100,7 +100,8 @@ public class MainActivity extends AppCompatActivity
     String mUsername;
 
     List<String> user;
-    ArrayAdapter<String> adapter;
+    List<String> addr;
+    CustomListAdapter adapter;
     ListView listOfUsers;
 
     Key pubKey;
@@ -237,10 +238,13 @@ public class MainActivity extends AppCompatActivity
         mListOfPeer=new SingletonListOfPeer().getSingleton();
 
         user = new ArrayList<String>();
+        addr = new ArrayList<String>();
+
 
         logName= (EditText) findViewById(R.id.LogeditText);
 
-        adapter = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,user);
+       // adapter = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,user);
+        adapter= new CustomListAdapter(this,user,addr,null);
 
         listOfUsers=(ListView) findViewById(R.id.listView);
         assert listOfUsers != null;
@@ -407,11 +411,8 @@ public class MainActivity extends AppCompatActivity
                 // recupero il titolo memorizzato nella riga tramite l'ArrayAdapter
                 final String titoloriga = (String) adattatore.getItemAtPosition(pos);
 
-                //Recover the ip of the client selected by listView (Is not the best choice)
-                String ipSelectedClient=new String(titoloriga.substring(titoloriga.indexOf('(')+2,titoloriga.length()-1));
-
-                ClientAsyncTask cl=new ClientAsyncTask(ipSelectedClient);
-                Toast.makeText(MainActivity.this, "Chat request to "+ ipSelectedClient, Toast.LENGTH_LONG).show();
+                ClientAsyncTask cl=new ClientAsyncTask(addr.get(pos).substring(1)); //I start from addr.get(pos)[1] in order to remove '/'
+                Toast.makeText(MainActivity.this, "Chat request to "+ user.get(pos), Toast.LENGTH_LONG).show();
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                     //For build newest than HONEYCOMB i need to us this command to launch AsyncTask
@@ -552,7 +553,8 @@ public class MainActivity extends AppCompatActivity
 
                         //Insert a new peer in the list if it's note present
                         mListOfPeer.insert(host, new Peer(host, "name"));
-                        user.add("1. "+info+" ("+host+")");
+                        user.add(info);
+                        addr.add(host);
                         adapter.notifyDataSetChanged(); //update adapter
                     }
 
@@ -836,7 +838,7 @@ public class MainActivity extends AppCompatActivity
 
                                                     /*Generating session Key with AES*/
                                                     KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-                                                    keyGen.init(128);
+                                                    keyGen.init(256);
                                                     Key sessionKey = keyGen.generateKey();
 
                                                     //Update the peer in ther list ==>insert the session key used
