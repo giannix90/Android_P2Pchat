@@ -8,37 +8,34 @@ import android.os.Build;
 import android.os.StrictMode;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Base64;
 import android.util.Log;
-import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Arrays;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.IvParameterSpec;
 
 /**
  * Created by gianni on 22/07/16.
@@ -60,7 +57,9 @@ public class ChatActivity extends AppCompatActivity {
     Key sessionKey;
     Cipher cipher;
     byte[] msg;
-    IvParameterSpec ivparams;
+    Socket skClient;
+    public InetAddress addressOfOtherPeer;
+
 
 
 
@@ -71,6 +70,10 @@ public class ChatActivity extends AppCompatActivity {
 
         mListOfPeer=new SingletonListOfPeer().getSingleton();
 
+
+
+
+        //----------------------
 
         try {
 
@@ -100,6 +103,7 @@ public class ChatActivity extends AppCompatActivity {
                 sendSk.bind(null);
                 sendSk.connect((new InetSocketAddress(address, 5555)), 5000);
                 Log.d(TAG, "Peer connected with" + sendSk.getInetAddress().getHostAddress());
+                addressOfOtherPeer=sendSk.getInetAddress();
                 out = sendSk.getOutputStream();
 
 
@@ -116,7 +120,6 @@ public class ChatActivity extends AppCompatActivity {
 
         mess= (EditText) findViewById(R.id.editText);
 
-        //textbox.append("\n"+address);
 
         RecvAsyncTask rec=new RecvAsyncTask(this);
 
@@ -217,6 +220,25 @@ public class ChatActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    protected void onDestroy()
+    {
+        try {
+
+            skClient.close();
+            skClient.shutdownOutput();
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (NullPointerException e){
+
+            Log.e(TAG,"Socket already closed");
+            e.printStackTrace();
+        }
+        super.onDestroy();
+    }
+
     class RecvAsyncTask extends AsyncTask
 
     {
@@ -241,14 +263,19 @@ public class ChatActivity extends AppCompatActivity {
 
                     Log.d(TAG, "Accepted connection from " + client.getInetAddress().getHostAddress());
                     out = client.getOutputStream();
+                    addressOfOtherPeer=client.getInetAddress();
 
-                } else client = sendSk;
+                } else {
+                    client = sendSk;
+                    addressOfOtherPeer=client.getInetAddress();
+                }
 
+
+                skClient=client;
 
                 Log.e(TAG,"Search "+client.getInetAddress().getHostAddress()+" in the hash table");
                 //Take the session key from hash table
                 sessionKey=mListOfPeer.getPeer(client.getInetAddress().getHostAddress()).getSessionKey();
-
 
 
 
@@ -264,12 +291,23 @@ public class ChatActivity extends AppCompatActivity {
 
                     try {
 
-                        inMsg.read(msg,0,160);
+                        if(inMsg.read(msg,0,160)==-1){
+
+                            //the peer close the connection and i have close the chatActivity
+                            finish();
+                            break;
+                        }
                         //Log.d(TAG, "Receive message " + new String(msg,"utf-8"));
 
                         Log.e(TAG, "Size of recvMsg: "+msg.length);
                     } catch (IOException e) {
                         e.printStackTrace();
+
+                        //Error in read of the socket, probably the other peer closed the connection
+
+
+                        finish();
+                        break;
                     }
 
                     runOnUiThread(new Runnable() {
@@ -288,10 +326,13 @@ public class ChatActivity extends AppCompatActivity {
 
                             } catch (IllegalBlockSizeException e) {
                                 e.printStackTrace();
+                                finish();
                             } catch (BadPaddingException e) {
                                 e.printStackTrace();
+                                finish();
                             } catch (InvalidKeyException e) {
                                 e.printStackTrace();
+                                finish();
                             }
 
                             // Add text
@@ -332,7 +373,7 @@ public class ChatActivity extends AppCompatActivity {
             } catch (InvalidKeyException e) {
                 e.printStackTrace();
             }
-
+            finish();
             return  null;
         }
     }

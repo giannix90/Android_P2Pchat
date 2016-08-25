@@ -28,7 +28,6 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -82,13 +81,6 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,NsdHelper.PeerFounded{
 
     NsdHelper mNsdHelper;
-    private Handler mUpdateHandler;
-
-
-    /**
-     *   A Handler allows you to send and process Message and Runnable objects associated with a thread's MessageQueue.
-     *   Each Handler instance is associated with a single thread and that thread's message queue
-     **/
 
     ListOfPeer mListOfPeer;
 
@@ -113,8 +105,9 @@ public class MainActivity extends AppCompatActivity
 
     Key privKey;
 
-    byte[] plainText;
     byte[] cipherText;
+
+    byte[] mID=new byte[20];
 
 
 
@@ -128,15 +121,17 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        //creating public_private key pair
+        //creating public_private key pair and ID for the peer
 
         File sdCard = Environment.getExternalStorageDirectory();
         File dir = new File (sdCard.getAbsolutePath() + "/P2P_key");
         dir.mkdirs();
-        File pub_file = new File(dir, "pub.key");
-        File pr_file = new File(dir, "pr.key");
+        File pub_file = new File(dir, "pub.key"); //file which contain public key
+        File pr_file = new File(dir, "pr.key"); //file which contain private key
+        File myId = new File(dir,"id.bin"); //file which contain the ID of the peer
 
-        if(!pub_file.isFile() && !pr_file.isFile()) {
+
+        if(!pub_file.isFile() && !pr_file.isFile() || !myId.isFile()) {
 
             /*In this case i have to generate a new public and private key pair because is the first run for the app*/
 
@@ -147,7 +142,6 @@ public class MainActivity extends AppCompatActivity
 
                 KeyPair pair = generator.generateKeyPair();
 
-                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
                 pubKey = pair.getPublic();
 
@@ -165,48 +159,23 @@ public class MainActivity extends AppCompatActivity
                 keypr.write(prkey);
                 keypr.close();
 
-
-                byte[] key_pub = new byte[1024];
-                FileInputStream inpub = new FileInputStream(pub_file);
-                inpub.read(key_pub);
-                inpub.close();
-
-                byte[] key_pr = new byte[1024];
-                FileInputStream inpr = new FileInputStream(pr_file);
-                inpr.read(key_pr);
-                inpr.close();
-
-                KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
-                PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key_pr));
-                PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key_pub));
+                    /*Save my ID*/
+                SecureRandom random = new SecureRandom();
+                random.nextBytes(mID);
+                FileOutputStream midstream = new FileOutputStream(myId);
+                midstream.write(mID);
+                midstream.close();
 
 
-                cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-
-                cipherText = cipher.doFinal("Stringaa da criptare ok!!!!\n".getBytes("UTF8"));
-
-                cipher.init(Cipher.DECRYPT_MODE, privateKey);
-
-                plainText = cipher.doFinal(cipherText);
 
 
             } catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();
             } catch (NoSuchProviderException e) {
                 e.printStackTrace();
-            } catch (NoSuchPaddingException e) {
-                e.printStackTrace();
-            } catch (BadPaddingException e) {
-                e.printStackTrace();
-            } catch (IllegalBlockSizeException e) {
-                e.printStackTrace();
-            } catch (InvalidKeyException e) {
-                e.printStackTrace();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
-                e.printStackTrace();
-            } catch (InvalidKeySpecException e) {
                 e.printStackTrace();
             }
         }else{
@@ -226,6 +195,13 @@ public class MainActivity extends AppCompatActivity
                 KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
                 privKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key_pr));
                 pubKey = kf.generatePublic(new X509EncodedKeySpec(key_pub));
+
+
+                //Fetch mID from the file
+                FileInputStream midstream = new FileInputStream(myId);
+                midstream.read(mID);
+                midstream.close();
+
             } catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();
             } catch (FileNotFoundException e) {
@@ -284,9 +260,7 @@ public class MainActivity extends AppCompatActivity
 
 
 
-        // Create an instance of the Login dialog fragment and show it
-
-
+        //** Create an instance of the Login dialog fragment and show it **//
         final Dialog dialog = new Dialog( this );
         dialog.setTitle("Log");
         dialog.setContentView( R.layout.dialog_signin);
@@ -313,20 +287,11 @@ public class MainActivity extends AppCompatActivity
                 }else {
 
                     Toast.makeText(MainActivity.this, "Logged as: " + logName.getText() + " ", Toast.LENGTH_LONG).show();
-                    mUsername = new String(logName.getText().toString());
+                   addChatLine(new String(String.valueOf(logName.getText())));
+                    mUsername = new String(String.valueOf(logName.getText()));
 
                     //----------------------------------------------------
                     // Create the NsdServiceInfo object, and populate it.
-
-                    mUpdateHandler = new Handler()
-                    {
-                        @Override
-                        public void handleMessage(Message msg)
-                        {
-                            String chatLine = msg.getData().getString("msg");
-                            addChatLine(chatLine);
-                        }
-                    };
 
                     try {
                         if(sk==null)
@@ -401,11 +366,12 @@ public class MainActivity extends AppCompatActivity
 
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
 
-        textbox.append(Formatter.formatIpAddress(wifiInfo.getIpAddress()));
+        //textbox.append(Formatter.formatIpAddress(wifiInfo.getIpAddress()));
 
         mIp=Formatter.formatIpAddress(wifiInfo.getIpAddress());
 
-        addChatLine("\n\n\nMy Ip: "+mIp);
+
+        addChatLine("My Ip: "+mIp);
 
         listOfUsers.setOnItemClickListener(new AdapterView.OnItemClickListener(){
 
@@ -435,7 +401,6 @@ public class MainActivity extends AppCompatActivity
 
 
 
-        textbox.append("Path: "+sdCard.getPath());
     }
 
     public void addChatLine(String line)
@@ -512,6 +477,9 @@ public class MainActivity extends AppCompatActivity
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
+        }
+        if (id == R.id.expanded_menu) {
+            System.exit(0);
         }
 
         return super.onOptionsItemSelected(item);
@@ -634,15 +602,15 @@ public class MainActivity extends AppCompatActivity
 
                     /*I'm A the initiator of session*/
                     /*Parameter for th key exchange protocol*/
-                    byte A[]=new byte[20];
+                    byte A[]=mID;
                     byte B[]=new byte[20];
                     byte Na[]=new byte[20];
                     byte Na1[]=new byte[20];
-                    byte Nb[]=new byte[20];
-                    byte Nb1[]=new byte[20];
+                    byte Nb[];
+                    byte Nb1[];
 
                     SecureRandom random = new SecureRandom();
-                    random.nextBytes(A);
+                   //s random.nextBytes(A);
                     random.nextBytes(Na);
                     random.nextBytes(Na1);
                     PublicKey Kb;
@@ -652,7 +620,7 @@ public class MainActivity extends AppCompatActivity
                     DataOutputStream sendPublicKey= new DataOutputStream(socket.getOutputStream());
 
 
-                    //create M1
+                    //create M1: A-->B:  A,Na
                     ByteArrayOutputStream outputStream = new ByteArrayOutputStream( );
                     outputStream.write( A );
                     outputStream.write( Na );
@@ -660,21 +628,31 @@ public class MainActivity extends AppCompatActivity
                     sendPublicKey.write(M1);
                     Log.d(TAG,"Send M1: <"+ Arrays.copyOfRange(M1,0,19)+"-----"+Arrays.copyOfRange(M1,20,M1.length));
 
-                    //wait for Message M2
+
+                    //wait for Message M2:  B-->A: B,Kb,{A,Na,Nb}Kb^-1
                     byte M2[]=new byte[310];
+
                     DataInputStream MessageIn = new DataInputStream(socket.getInputStream());
+
                     Log.d(TAG,"Received M2 size: "+MessageIn.read(M2));
+
+                    //*Put in kb variable the Kb received from B*//
                     Cipher cipher1 = Cipher.getInstance("RSA/NONE/NoPadding", "BC");
                     KeyFactory kf = KeyFactory.getInstance("RSA");
                     Log.e(TAG,"kb received : "+Arrays.toString(Arrays.copyOfRange(M2,20,182)));
                     Kb = kf.generatePublic(new X509EncodedKeySpec(Arrays.copyOfRange(M2,20,182)));//convert from byte stream to key format
+
+                    //I Decrypt the Mtemp block ==>  {A,Na,Nb}Kb^-1 with Kb in order to obtain A,Na,Nb
                     cipher1.init(Cipher.DECRYPT_MODE,Kb);
                     byte Mtemp[]=cipher1.doFinal(Arrays.copyOfRange(M2,182,M2.length));
+                    Nb=Arrays.copyOfRange(Mtemp,60,Mtemp.length);
+                    B=Arrays.copyOfRange(M2,0,20); //Obtain the ID of B
 
 
                     Log.e(TAG,"Mtempcripted: "+Arrays.toString(Arrays.copyOfRange(M2,182,M2.length)));
                     Log.e(TAG,"A received : "+Arrays.toString(Arrays.copyOfRange(Mtemp,0,20)));
                     Log.e(TAG,"My A : "+Arrays.toString(A));
+
 
                     /*I control A id received (if is equal to my A i)*/
                     if(Arrays.equals(Arrays.copyOfRange(Mtemp,0,20),A)){ //this function compare the 2 arrays
@@ -705,54 +683,111 @@ public class MainActivity extends AppCompatActivity
                     }
                     outputStream.reset();
 
+
+                    //*I create M3: A-->B: A,{A,Ka,Nb}_Ka^(-1),{A,Ka,Na'}_Kb *//
+
                     /*I made {A,Ka,Na'}_Kb ==> M3_1 */
                     outputStream.write(A);
                     outputStream.write(pubKey.getEncoded());
                     outputStream.write(Na1);
                     cipher1.init(Cipher.ENCRYPT_MODE,Kb);
-                    byte M3_1[]=cipher1.doFinal(outputStream.toByteArray());
-
+                    byte M3_1[]=outputStream.toByteArray();
+                    /*I have to split the packet because is bigger than 128 (which is the key size that i use to encrypt) */
+                    byte M3_1_1[]=cipher1.doFinal(Arrays.copyOfRange(M3_1,0,128));
+                    byte M3_1_2[]=cipher1.doFinal(Arrays.copyOfRange(M3_1,128,M3_1.length));
+                    Log.e(TAG,"Size of {A,Ka,Na'}_Kb : "+M3_1.length);
                     outputStream.reset();
 
-                    /*I made {A,Ka,Nb}_Ka^(-1) ==> M3_2*/
+
+
+
+                    /* I made {A,Ka,Nb}_Ka^(-1) ==> M3_2 */
                     outputStream.write(A);
                     outputStream.write(pubKey.getEncoded());
                     outputStream.write(Nb);
                     cipher1.init(Cipher.ENCRYPT_MODE,privKey);
-                    byte M3_2[]=cipher1.doFinal(outputStream.toByteArray());
+                    byte M3_2[]=outputStream.toByteArray();
+                    /*I have to split the packet because is bigger than 128 (which is the key size that i use to encrypt) */
+                    byte M3_2_1[]=cipher1.doFinal(Arrays.copyOfRange(M3_2,0,128));
+                    byte M3_2_2[]=cipher1.doFinal(Arrays.copyOfRange(M3_2,128,M3_2.length));
 
+                    Log.e(TAG,"Size of {A,Ka,Nb}_Ka^-1 : "+M3_1.length);
                     outputStream.reset();
 
                     /*I made M3*/
                     outputStream.write(A);
-                    outputStream.write(M3_2);
-                    outputStream.write(M3_1);
+                    outputStream.write(M3_2_1);
+                    outputStream.write(M3_2_2);
+                    outputStream.write(M3_1_1);
+                    outputStream.write(M3_1_2);
                     byte M3[]=outputStream.toByteArray();
                     sendPublicKey.write(M3);
                     Log.e(TAG,"Message M3 size :"+M3.length);
 
 
 
+                    /*Receive M4*/
+                    outputStream.reset();
+                    byte M4[]=new byte[1024];
+                    int M4_size=MessageIn.read(M4);
+                    Log.e(TAG,"M4 size : "+M4_size);
 
-                    sendPublicKey.write(pubKey.getEncoded());
+                    cipher1.init(Cipher.DECRYPT_MODE,privKey);
+                    byte M4_1[]=cipher1.doFinal(Arrays.copyOfRange(M4,20,148));
+                    outputStream.write(M4_1);
 
-                    final byte [] encSessionKey = new byte[128]; //space reserved for the (AES)session key block encrypted with RSA
 
-                    //wait for session key
-                    DataInputStream is = new DataInputStream(socket.getInputStream());
-                    is.read(encSessionKey);
+                     /*I control A id received (if is equal to my A i)*/
+                    if(Arrays.equals(Arrays.copyOfRange(M4_1,0,20),A)){ //this function compare the 2 arrays
 
-                    //i close the stream
-                    is.close();
-                    sendPublicKey.close();
-                    in.close();
+                        Log.e(TAG,"A is equal ok!!!!!!");
 
-                    //I decrypt the session key
-                    Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                    cipher.init(Cipher.DECRYPT_MODE, privKey);
-                    final byte [] sessionKey= cipher.doFinal(encSessionKey);
+                    }else {
 
-                    SecretKeySpec key = new SecretKeySpec(sessionKey, "AES");
+                        Log.e(TAG,"A is different error!!!");
+                        Log.e(TAG,"A received : "+Arrays.toString(Arrays.copyOfRange(M4_1,0,20)));
+                        Log.e(TAG,"My A : "+Arrays.toString(A));
+
+                        Runnable r = new AlertWrongHandshakeProtocol();
+                        Thread t1=new Thread(r);
+                        t1.start();
+
+                    }
+
+                    SecretKeySpec Kab = new SecretKeySpec(Arrays.copyOfRange(M4_1,20,52), "AES");
+
+                    /*I control Na1*/
+                    if(Arrays.equals(Arrays.copyOfRange(M4_1,52,72),Na1)){ //this function compare the 2 arrays
+
+                        Log.e(TAG,"Na' is equal ok!!!!!!");
+
+                    }else {
+
+                        Log.e(TAG,"Na' is different error!!!");
+                        Log.e(TAG,"Na' received : "+Arrays.toString(Arrays.copyOfRange(M4_1,52,72)));
+                        Log.e(TAG,"My Na' : "+Arrays.toString(Na1));
+
+                        Runnable r = new AlertWrongHandshakeProtocol();
+                        Thread t1=new Thread(r);
+                        t1.start();
+                        return null; //Error i close the protocol
+
+                    }
+
+                    Nb1=Arrays.copyOfRange(M4_1,72,92);
+
+                    /*I make M5*/
+
+                    /*Perform Nb'-1*/
+                    Nb1[Nb1.length-1]-=1;
+                    Cipher cipherAES = Cipher.getInstance("AES/ECB/PKCS5PADDING");
+                    cipherAES.init(Cipher.ENCRYPT_MODE, Kab);
+                    byte M5[]=cipherAES.doFinal(Nb1);
+                    sendPublicKey.write(M5);
+
+                    //----------------------
+
+
 
                     //Update the peer in ther list ==>insert the session key used
                     final String addrPeer=socket.getInetAddress().getHostAddress();
@@ -761,9 +796,9 @@ public class MainActivity extends AppCompatActivity
                         Log.e(TAG,"Peer not founded in the peer list ERROR!!");
 
                         mListOfPeer.insert(addrPeer,new Peer(addrPeer,""));
-                        mListOfPeer.getPeer(addrPeer).setSessionKey(key);
+                        mListOfPeer.getPeer(addrPeer).setSessionKey(Kab);
                     }else{
-                        mListOfPeer.getPeer(addrPeer).setSessionKey(key);
+                        mListOfPeer.getPeer(addrPeer).setSessionKey(Kab);
                     }
 
                     mListOfPeer.i=1;
@@ -779,13 +814,13 @@ public class MainActivity extends AppCompatActivity
 
                                     //I inflate the box of custom title
                                     .setTitle("OK chat request accepted!!")
-                                    .setMessage("Session key: "+new String(mListOfPeer.getPeer(addrPeer).getSessionKey().getEncoded()))
+                                    .setMessage("Key exchange protocol succeed!")
                                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
 
                                             public void onClick(DialogInterface dialog, int which) {
 
                                                 /* continue with CONNECTION ==> I have to launch a new dialog activity*/
-                                                Peer p=new Peer(address,"User");
+
                                                 Intent myIntent = new Intent(MainActivity.this, ChatActivity.class); //Optional parameters
                                                 myIntent.putExtra("com.example.gianni.myapplication", address); //Optional parameters
                                                 MainActivity.this.startActivity(myIntent);
@@ -850,7 +885,6 @@ public class MainActivity extends AppCompatActivity
                 e.printStackTrace();
             } catch (IllegalBlockSizeException e) {
                 e.printStackTrace();
-
             } catch (InvalidKeySpecException e) {
                 e.printStackTrace();
             } catch (NoSuchProviderException e) {
@@ -923,15 +957,15 @@ public class MainActivity extends AppCompatActivity
 
                                                     /*I'm B peer*/
                                                     /*Parameter for th key exchange protocol*/
-                                                    byte A[]=new byte[20];
+                                                    byte A[]=mID;
                                                     byte B[]=new byte[20];
-                                                    byte Na[]=new byte[20];
-                                                    byte Na1[]=new byte[20];
+                                                    byte Na[];
+                                                    byte Na1[];
                                                     byte Nb[]=new byte[20];
                                                     byte Nb1[]=new byte[20];
 
                                                     SecureRandom random = new SecureRandom();
-                                                    random.nextBytes(B);
+                                                    //random.nextBytes(B);
                                                     random.nextBytes(Nb);
                                                     random.nextBytes(Nb1);
                                                     PublicKey Ka;
@@ -939,10 +973,8 @@ public class MainActivity extends AppCompatActivity
                                                     /*Permit  android.os.NetworkOnMainThreadException*/
                                                     StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
                                                     StrictMode.setThreadPolicy(policy);
-/*
-                                                    PrintWriter out =new PrintWriter(client.getOutputStream(), true);
-                                                    out.print("y");
-*/
+
+
                                                     /*Send that i want accept the communication*/
                                                     OutputStream os=client.getOutputStream();
                                                     os.write((byte) 'y');
@@ -951,14 +983,14 @@ public class MainActivity extends AppCompatActivity
                                                     /*I wait for a public Key of the peer*/
                                                     DataInputStream pubKeyPeerStream=new DataInputStream(client.getInputStream());
 
-                                                    /*Wait for M1*/
+                                                    /*Wait for M1: A-->B: A,Na*/
                                                     byte M1[]=new byte[40];
                                                     pubKeyPeerStream.read(M1);
                                                     A=Arrays.copyOfRange(M1,0,20);
                                                     Na=Arrays.copyOfRange(M1,20,M1.length);
                                                     Log.d(TAG,"Message M1 received: <"+A+"------"+Na);
 
-                                                    /*Create message M2*/
+                                                    /* Create message M2: B-->A:  B,Kb,{A,Na,Nb}Kb^-1 */
                                                     byte Mtemp[];
                                                     ByteArrayOutputStream outputStream = new ByteArrayOutputStream( );
 
@@ -990,27 +1022,109 @@ public class MainActivity extends AppCompatActivity
                                                     MessageOut.flush();
                                                     //MessageOut.close();
 
-                                                    /*Wait for M3*/
+                                                    /*----Wait for M3------*/
                                                     byte M3[]=new byte[1024];
-                                                    int M3Size=pubKeyPeerStream.read(M1);
+                                                    int M3Size=pubKeyPeerStream.read(M3);
                                                     Log.e(TAG,"M3 message received size: "+M3Size);
 
+                                                    /*Recreate M3*/
 
+                                                    //Recreate M3_1
+                                                    outputStream.reset();
+                                                    cipher1.init(Cipher.DECRYPT_MODE,privKey);
+                                                    //M3_1 is splitted in 2 part oh 128 each
+                                                    outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M3,276,276+128)));
+                                                    outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M3,276+128,M3Size)));
+                                                    byte M3_1[]=outputStream.toByteArray();
 
-
-                                                    byte [] pubKeyPeer=new byte[1024];
-                                                    pubKeyPeerStream.read(pubKeyPeer);
-
-                                                    /*Prepare the RSA cipher*/
-                                                    Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                                                    /*Obtain Ka*/
                                                     KeyFactory kf = KeyFactory.getInstance("RSA");
-                                                    PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(pubKeyPeer));//convert from byte stream to key format
+                                                    Ka = kf.generatePublic(new X509EncodedKeySpec(Arrays.copyOfRange(M3_1,20,182)));//convert from byte stream to key format
 
 
+                                                    Log.e(TAG,"My A :"+Arrays.toString(A));
+
+                                                    Log.e(TAG,"A received:"+Arrays.toString(Arrays.copyOfRange(M3_1,0,20)));
+                                                    Na1=Arrays.copyOfRange(M3_1,182,M3_1.length);
+
+                                                    //Recreate M3_2
+                                                    outputStream.reset();
+                                                    cipher1.init(Cipher.DECRYPT_MODE,Ka);outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M3,276,276+128)));
+                                                    outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M3,20,128+20)));
+                                                    outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M3,128+20,256+20)));
+                                                    byte M3_2[]=outputStream.toByteArray();
+
+                                                    //Control Nb
+                                                    if(Arrays.equals(Arrays.copyOfRange(M3_2,182,202),Nb)){ //this function compare the 2 arrays
+
+                                                        Log.e(TAG,"Nb is equal ok!!!!!!");
+
+                                                    }else {
+
+                                                        Log.e(TAG,"Nb is different error!!!");
+                                                        Log.e(TAG,"My Nb: "+Arrays.toString(Nb));
+
+                                                        Log.e(TAG,"Nb received: "+Arrays.toString(Arrays.copyOfRange(M3_2,182,202)));
+                                                        Runnable r = new AlertWrongHandshakeProtocol();
+                                                        Thread t1=new Thread(r);
+                                                        t1.start();
+
+                                                    }
+
+                                                    /*Create Message M4*/
+
+                                                    outputStream.reset();
                                                     /*Generating session Key with AES*/
-                                                    KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-                                                    keyGen.init(256);
-                                                    Key sessionKey = keyGen.generateKey();
+                                                    KeyGenerator KabGen = KeyGenerator.getInstance("AES");
+                                                    KabGen.init(256);
+                                                    Key Kab = KabGen.generateKey();
+                                                    outputStream.write(A);
+                                                    outputStream.write(Kab.getEncoded());
+                                                    outputStream.write(Na1);
+                                                    outputStream.write(Nb1);
+                                                    byte M4_1[]=outputStream.toByteArray();
+                                                    Log.e(TAG,"M4_1 : "+Arrays.toString(M4_1));
+                                                    outputStream.reset();
+                                                    cipher1.init(Cipher.ENCRYPT_MODE,Ka);
+                                                    outputStream.write(B);
+                                                    outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M4_1,0,M4_1.length)));
+//                                                    outputStream.write(cipher1.doFinal(Arrays.copyOfRange(M4_1,128,M4_1.length)));
+                                                    byte M4[]=outputStream.toByteArray();
+                                                    MessageOut.write(M4);
+
+                                                    Log.e(TAG,"Size of Kab: "+Kab.getEncoded().length);
+
+                                                    Log.e(TAG,"Size of M4: "+M4.length);
+
+
+                                                    /*Receive and control M5*/
+                                                    byte M5[]=new byte[1024];
+
+                                                    int M5Size=pubKeyPeerStream.read(M5);
+                                                    Nb1[Nb1.length-1]-=1;
+                                                    Cipher cipherAES = Cipher.getInstance("AES/ECB/PKCS5PADDING");
+                                                    cipherAES.init(Cipher.DECRYPT_MODE, Kab);
+                                                    byte M5_1[]=cipherAES.doFinal(Arrays.copyOfRange(M5,0,M5Size));
+
+                                                    //Control Nb'-1
+                                                    if(Arrays.equals(M5_1,Nb1)){ //this function compare the 2 arrays
+
+                                                        Log.e(TAG,"Nb'-1 is equal ok!!!!!!");
+
+                                                    }else {
+
+                                                        Log.e(TAG,"Nb'-1 is different error!!!");
+                                                        Log.e(TAG,"My Nb'-1: "+Arrays.toString(Nb1));
+
+                                                        Log.e(TAG,"Nb'-1 received: "+M5_1);
+                                                        Runnable r = new AlertWrongHandshakeProtocol();
+                                                        Thread t1=new Thread(r);
+                                                        t1.start();
+
+                                                        return;  //I ignore this request becouse the protocol fails and jump to the next request
+                                                    }
+
+                                                    //--------------------------
 
                                                     //Update the peer in ther list ==>insert the session key used
                                                     String addrPeer=client.getInetAddress().getHostAddress();
@@ -1019,25 +1133,12 @@ public class MainActivity extends AppCompatActivity
                                                         Log.e(TAG,"Peer not founded in the peer list ERROR!!");
 
                                                         mListOfPeer.insert(addrPeer,new Peer(addrPeer,""));
-                                                        mListOfPeer.getPeer(addrPeer).setSessionKey(sessionKey);
+                                                        mListOfPeer.getPeer(addrPeer).setSessionKey(Kab);
                                                     }else{
-                                                        mListOfPeer.getPeer(addrPeer).setSessionKey(sessionKey);
+                                                        mListOfPeer.getPeer(addrPeer).setSessionKey(Kab);
                                                     }
 
 
-                                                    /*Encrypt the sessionKey with pubKey of peer*/
-                                                    cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-                                                    cipherText = cipher.doFinal(sessionKey.getEncoded()); //This is the sessionKey ecrypted
-
-                                                    Log.e(TAG,"SIZE ciphertext: "+cipherText.length);
-
-                                                    /*Send session key cipher by means of public key of the peer*/
-                                                    DataOutputStream sessionKeyOut=new DataOutputStream(client.getOutputStream());
-                                                    sessionKeyOut.write(cipherText);
-                                                    sessionKeyOut.flush();
-
-                                                    /*Close the opened stream*/
-                                                    sessionKeyOut.close();
                                                     os.close();
 
                                                 } catch (IOException e) {
@@ -1059,9 +1160,8 @@ public class MainActivity extends AppCompatActivity
                                                 }
 
                                                 /*I launch a new activity for the chat with secure channel created*/
-                                                Peer p=new Peer("addr","User");
+
                                                 Intent myIntent = new Intent(MainActivity.this, ChatActivity.class);
-                                                //myIntent.putExtra("com.example.gianni.myapplication", client.getInetAddress().getHostAddress()); //Optional parameters
                                                 MainActivity.this.startActivity(myIntent);
                                             }
                                         })
