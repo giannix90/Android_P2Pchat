@@ -59,6 +59,7 @@ public class ChatActivity extends AppCompatActivity {
     byte[] msg;
     Socket skClient;
     public InetAddress addressOfOtherPeer;
+    ServerSocket serverSocket;
 
 
 
@@ -225,9 +226,18 @@ public class ChatActivity extends AppCompatActivity {
     {
         try {
 
-            skClient.close();
-            skClient.shutdownOutput();
+            //Clear used resources
 
+            serverSocket.close();   //If i don't close it , the Android OS keep this resources in memory and at each new Activity the address is already used(we have an exception// )
+
+            if(sendSk != null)
+                    sendSk.close();
+
+            if(skClient != null) {
+
+                skClient.close();
+                skClient.shutdownOutput();
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -257,7 +267,9 @@ public class ChatActivity extends AppCompatActivity {
             try {
 
                 if (address == null) {
-                    final ServerSocket serverSocket = new ServerSocket(5555);
+
+
+                    serverSocket = new ServerSocket(5555);
 
                     client = serverSocket.accept();
 

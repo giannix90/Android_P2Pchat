@@ -96,6 +96,10 @@ public class MainActivity extends AppCompatActivity
 
     String mUsername;
 
+    EditText newPeerIpi;
+
+    Dialog dialog1; //Dialog for add manually new Peer in the list
+
     List<String> user;
     List<String> addr;
     CustomListAdapter adapter;
@@ -238,16 +242,48 @@ public class MainActivity extends AppCompatActivity
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Sync "+mUsername+" with peers ", Snackbar.LENGTH_LONG)
+                Snackbar.make(view, "Adding new Peer..", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
 
-                if(mNsdHelper != null){
-                    mNsdHelper.stopDiscovery(); //close old discovery
-                    mNsdHelper.discoverServices(); //reopen discovery
+                //** Create an instance of the NewPeer insert dialog fragment and show it **//
+                dialog1 = new Dialog(context);
+                dialog1.setTitle("Add new Peer");
+                dialog1.setContentView( R.layout.dialog_add_new_peer);
+
+                dialog1.setTitle( "Enter Ip of Peer to insert in the list" );
+                 newPeerIpi=(EditText) dialog1.findViewById(R.id.Ipaddr);
+
+        /*Handle button insert*/
+                Button b1=(Button) dialog1.findViewById(R.id.peerbutton);
+                b1.setOnClickListener(new View.OnClickListener() {
+
+                    //Assign a listener to click event
+                    @Override
+                    public void onClick(View v) {
+
+                        Log.d(TAG,"I want insert new peer");
+                        //Fetch the userName inserted
+                        String newPeerIp=new String(newPeerIpi.getText().toString());
+                        onPeerFounded("Unknown User","/"+newPeerIp,8888);
+                        dialog1.dismiss();//this close the dialog frame
+                    }
+                });
+
+                try {
+                    Log.d(TAG,"i want show a dialog");
+                    dialog1.show();
+                }catch(Exception e){
+                    //Handle error
+                    Log.e(TAG,"Dialog Error");
                 }
+
+
 
             }
         });
+
+
+
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(

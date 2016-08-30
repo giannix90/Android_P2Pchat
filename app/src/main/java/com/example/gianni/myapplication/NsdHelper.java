@@ -91,7 +91,7 @@ public class NsdHelper {
                     mNsdManager.resolveService(service, mResolveListener);
                 }catch ( java.lang.IllegalArgumentException e){
                     //If we have   java.lang.IllegalArgumentException: listener already in use
-                    //we create a new listener becouse the old is busy
+                    //we create a new listener because the old is busy
 
                     mNsdManager.resolveService(service, new NsdManager.ResolveListener() {
 
@@ -103,7 +103,9 @@ public class NsdHelper {
                         @Override
                         public void onServiceResolved(NsdServiceInfo serviceInfo) {
 
+                            //Call the onPeerFounded which add a new user in the list
                             mPeerFounded.onPeerFounded(serviceInfo.getServiceName(),serviceInfo.getHost().toString(),serviceInfo.getPort());
+
                             Log.e(TAG, "Resolve Succeeded. " + serviceInfo);
 
                             if (serviceInfo.getServiceName().equals(mServiceName)) {
